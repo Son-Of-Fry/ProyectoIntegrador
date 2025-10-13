@@ -1,0 +1,21 @@
+{
+  "cam_count": 1,
+  "cameras": [
+    {
+      "id": 0,
+      "type": "USB"
+    }
+  ],
+  "executor": "camera_yolo_1.py",
+  "objects": [
+    "helmet",
+    "person"
+  ],
+  "yolo": {
+    "model": "runs/detect/train2/weights/best.pt",
+    "confidence": 0.35,
+    "imgsz": 640,
+    "process_every": 1,
+    "device": "cuda"
+  }
+}
