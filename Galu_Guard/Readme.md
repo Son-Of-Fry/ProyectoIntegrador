@@ -117,7 +117,7 @@ como un primer avance, se mejoro el ejecutor (scripts anteriores), para que gene
 * Guardar detecciones en un **CSV**: `logs/detections.csv`
 * Guardar **recortes de imágenes**: `logs/images/*.jpg`
 
----
+
 
 #### **Implementamos deduplicador**
 En está etapa de pruebas, donde las ligeras variaciones puede generar duplicados, se creó un deduplicador para evitar entradas repetidas, aplicando distinos filtros, como:
@@ -131,7 +131,7 @@ En está etapa de pruebas, donde las ligeras variaciones puede generar duplicado
   * Ventana de tiempo (ej. 2 segundos).
 * Resultado limpio en: `detections_deduped.csv`
 
----
+
 
 #### **Añadimos soporte para modelos fine-tuneados**
 Una parte importante de este proyecto, es el crear nuevos modelos de visión, adaptados a las necesidades que vayan surgiendo de una manera simple. Por lo que la idea es añadir un flujo sencillo usando herramientas "graphical image annotation".
