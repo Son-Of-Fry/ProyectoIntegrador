@@ -3,6 +3,6 @@
 *.spec
 /build
 /Galu_Guard/logs
-/GaluGuard/__pycache__
-/GaluGuard/training
-/GaluGuard/logs
+/Galu_Guard/__pycache__
+/Galu_Guard/training
+/Galu_Guard/logs
