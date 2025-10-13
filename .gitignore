@@ -1,0 +1,5 @@
+# Ignorar modelo YOLO
+*.pt
+*.spec
+/build
+/Galu_Guard/logs
