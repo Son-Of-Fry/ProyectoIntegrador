@@ -1,17 +1,88 @@
-Claro. Aquí tienes un resumen más narrado y explicativo del proceso que seguimos:
+# GALU GUARD – Detección de Objetos en Tiempo Real con Interfaz Qt
 
----
+Galu Guard es una plataforma de vigilancia visual que combina detección en vivo con YOLOv8, una interfaz gráfica construida con PySide6 (Qt) y funcionalidades avanzadas de configuración, reporte histórico y deduplicación. El sistema corre completamente dentro de un contenedor Docker con soporte para aceleración GPU (CUDA) y acceso a cámaras USB.
 
-Tomamos un proyecto en Python que usa **Qt (PySide6)** para la interfaz gráfica y **YOLO (Ultralytics)** para detección de objetos, acelerado con **GPU NVIDIA**. La idea era encapsular todo en un contenedor Docker, pero que la ventana de Qt se viera en el host y que la cámara del host también pudiera usarse.
 
-Primero creamos un `Dockerfile` basado en una imagen oficial de PyTorch (`pytorch/pytorch:2.2.2-cuda11.8-cudnn8-runtime`), porque ya viene lista con Python, CUDA y cuDNN. Esto evitó muchos problemas de compatibilidad. Agregamos las dependencias del sistema necesarias para que Qt pudiera renderizar (como `libgl1-mesa-glx`, `libxcb-cursor0`, etc.) y luego instalamos los paquetes de Python: `PySide6`, `ultralytics`, `opencv-python` y `numpy<2` (porque Torch aún no se lleva bien con `numpy>=2`).
 
-Después, para que el contenedor pudiera usar la **GPU**, instalamos el **NVIDIA Container Toolkit**, lo configuramos con `nvidia-ctk runtime configure` y reiniciamos Docker. Verificamos con `nvidia-smi` que funcionara desde dentro del contenedor. Todo bien.
+Requisitos:
 
-También configuramos el contenedor para que pudiera mostrar la **interfaz Qt en el host**, montando el socket X11 y usando `xhost +local:docker` para darle permiso gráfico.
+• Ubuntu con GPU NVIDIA y drivers compatibles
+• Docker instalado y funcionando
+• NVIDIA Container Toolkit (`nvidia-ctk runtime configure`)
+• Sistema gráfico X11 funcionando en el host
+• Cámara accesible vía `/dev/video0`
 
-Para que la app usara la **cámara USB**, agregamos los flags `--device /dev/video0` y `--privileged`, y así OpenCV pudo acceder al dispositivo sin errores.
 
-Por último, creamos un script `run_qt_yolo.sh` que detiene y elimina cualquier contenedor anterior llamado `qt-yolo` y lo vuelve a lanzar limpio, con todos los permisos necesarios. Así puedes ejecutar tu app en un solo paso, siempre desde cero y sin conflictos.
+Estructura del proyecto:
 
-En resumen: hicimos que una app Qt + YOLO con GPU corriera completamente dentro de un contenedor Docker, con salida gráfica y entrada por cámara, usando las herramientas correctas para cada problema.
+```bash
+Galu_guard_contenedor/
+├── camera_yolo_1.py       # Lógica principal de captura, detección y visualización
+├── galu_guard_center.py   # Módulo auxiliar (procesamiento, backend)
+├── launcher.py            # Lanzador gráfico con opciones de ejecución
+├── configurator.py        # Configuración GUI de cámaras y parámetros
+├── reportador.py          # Reporte histórico con imágenes y estadísticas
+├── deduplicator.py        # Limpieza de duplicados en detecciones
+├── config.json            # Archivo central de configuración
+├── dockerfile             # Imagen base con todo preinstalado
+├── correr.sh              # Script para lanzar el contenedor de forma segura
+├── logs/                  # Carpeta donde se guardan detecciones e imágenes
+```
+
+
+
+Construcción de la imagen Docker:
+
+Desde el directorio principal:
+
+```bash
+docker build -t qt-yolo .
+```
+
+
+Script de ejecución (`correr.sh`):
+
+```bash
+#!/bin/bash
+
+docker stop qt-yolo 2>/dev/null
+docker rm qt-yolo 2>/dev/null
+
+xhost +local:docker
+
+docker run -it --rm \
+  --name qt-yolo \
+  --gpus all \
+  --device /dev/video0:/dev/video0 \
+  --privileged \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v $(pwd):/app \
+  qt-yolo
+
+xhost -local:docker
+```
+
+Hazlo ejecutable:
+
+```bash
+chmod +x correr.sh
+```
+
+
+
+Ejecutar el sistema:
+
+Simplemente corre:
+
+```bash
+./correr.sh
+```
+
+Esto iniciará el contenedor con soporte gráfico, GPU y cámara. Se abrirá la ventana del lanzador Qt, desde donde puedes:
+• Configurar parámetros (`configurator.py`)
+• Ejecutar cámaras (`camera_yolo_1.py`)
+• Visualizar reportes históricos (`reportador.py`)
+
+Todo basado en lo definido en `config.json`, que permite personalizar cámaras, clases a detectar, modelo y parámetros de YOLOv8. El sistema guarda logs y genera imágenes organizadas que luego puedes revisar desde la interfaz.
+
