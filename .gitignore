@@ -7,3 +7,86 @@
 /Galu_Guard/training
 /Galu_Guard/runs
 __pycache__/
+
+# Archivos de pesos de modelos
+*.pt
+*.onnx
+*.weights
+*.engine
+*.pth
+
+# Carpetas con resultados o ejecuciones
+runs/
+output/
+outputs/
+logs/
+
+# Imágenes y videos de entrenamiento o prueba
+*.jpg
+*.jpeg
+*.png
+*.bmp
+*.gif
+*.mp4
+*.avi
+*.mov
+
+# Archivos temporales o de caché
+*.tmp
+*.log
+*.cache
+*.npy
+*.npz
+
+# Archivos del entorno
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.pyc
+
+
+# === ENTRENAMIENTOS Y DATASETS ===
+entrenamientos/**/runs/
+entrenamientos/**/weights/
+entrenamientos/**/labels/
+entrenamientos/**/images/
+entrenamientos/**/valid/
+entrenamientos/**/train/
+entrenamientos/**/datasets/
+entrenamientos/**/data.yaml
+entrenamientos/**/*.cache
+entrenamientos/**/*.jpg
+entrenamientos/**/*.jpeg
+entrenamientos/**/*.png
+entrenamientos/**/*.txt
+entrenamientos/**/*.zip
+
+# === YOLO WEIGHTS ===
+*.pt
+*.weights
+*.onnx
+*.engine
+*.pth
+
+# === LOGS Y RESULTADOS ===
+logs/
+*.log
+*.csv
+*.json
+*.yaml
+runs/
+output/
+outputs/
+tmp/
+__pycache__/
+*.pyc
+
+# === SISTEMA ===
+.DS_Store
+.env
+.venv/
+
+# Ignorar pesos YOLO en Galu_Guard
+Galu_Guard/*.pt
+Galu_Guard/*.onnx
