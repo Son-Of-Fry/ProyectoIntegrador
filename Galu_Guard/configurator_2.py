@@ -2,9 +2,10 @@
 import sys, json, os, glob, cv2
 from PySide6.QtWidgets import (QWidget, QApplication, QLabel, QPushButton, QComboBox, QVBoxLayout,
                                QCheckBox, QSpinBox, QScrollArea, QListWidgetItem, QMessageBox,
-                               QFileDialog, QLineEdit, QWidget as QtWidget)
+                               QFileDialog, QLineEdit, QWidget as QtWidget, QHBoxLayout, QSizePolicy)
 from PySide6.QtCore import Qt, QTimer
 from ultralytics import YOLO
+import subprocess
 
 IS_WIN = os.name == "nt"
 BACKEND = cv2.CAP_DSHOW if IS_WIN else cv2.CAP_ANY
@@ -64,19 +65,23 @@ EXCLUIR = {
     "zebra"
 }
 
-# Puedes registrar aquí tus modelos disponibles
-MODELS_DIR = "models"
-MODELS = {
-    "YOLO11s (default)": "yolo11s.pt",
-    "Casco EPP (helmet.pt)": "runs/detect/train2/weights/best.pt",
-    "Otro...": "custom"
-}
+# Intentar cargar modelos desde 'modelos_disponibles.json', si no existe usar valores por defecto
+MODELS = {}
+MODELS_PATH = os.path.join(os.path.dirname(__file__), "modelos_disponibles.json")
+if os.path.exists(MODELS_PATH):
+    try:
+        with open(MODELS_PATH, "r") as f:
+            data = json.load(f)
+            if isinstance(data, dict) and "modelos" in data:
+                MODELS = {item["nombre"]: item["archivo"] for item in data["modelos"] if "nombre" in item and "archivo" in item}
+    except Exception as e:
+        print("Error al cargar modelos_disponibles.json:", e)
 
 class Configurator(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Configuración de Galu Guard")
-        self.setFixedSize(500, 650)
+        self.setFixedSize(800, 650)  # Aumentado ancho a 800
 
         # ---------- Selección de modelo ----------
         self.model_label = QLabel("Seleccionar modelo YOLO:")
@@ -85,52 +90,70 @@ class Configurator(QWidget):
             self.model_combo.addItem(name)
         self.model_combo.currentIndexChanged.connect(self.load_model_and_classes)
 
-        self.model_path = MODELS["YOLO11s (default)"]  # por defecto
+        self.model_path = None
+        # Establecer model_path inicial según primer modelo
+        first_model_name = self.model_combo.itemText(0)
+        if first_model_name in MODELS and MODELS[first_model_name] != "custom":
+            self.model_path = MODELS[first_model_name]
         self.custom_model_btn = QPushButton("Seleccionar archivo...")
         self.custom_model_btn.clicked.connect(self.select_custom_model)
         self.custom_model_btn.setVisible(False)
 
-        # ---------- Cámaras ----------
-        self.cams_label = QLabel("Seleccionar cámara USB o RTSP:")
-        self.cams_combo = QComboBox()
-        # self.load_cameras()  # Removed from here
+        # ---------- Selección de tipo de cámara ----------
+        self.cam_type_label = QLabel("Seleccionar tipo de cámara:")
+        self.cam_type_combo = QComboBox()
+        self.cam_type_combo.addItems(["USB", "RTSP", "REALSENSE"])
+        self.cam_type_combo.currentIndexChanged.connect(self.on_cam_type_changed)
 
-        self.rtsp_label = QLabel("URL RTSP:")
+        # ---------- Selección de dispositivo según tipo ----------
+        self.cam_device_label = QLabel("Seleccionar dispositivo:")
+        self.cam_device_combo = QComboBox()
+        self.cam_device_combo.currentIndexChanged.connect(self.on_cam_device_changed)
+
+        # RTSP widgets (campo URL y botón probar)
         self.rtsp_input = QLineEdit()
         self.rtsp_input.setPlaceholderText("Ingrese URL RTSP aquí")
-        self.rtsp_input.setReadOnly(False)
-        self.rtsp_input.setEnabled(False)
         self.rtsp_input.setClearButtonEnabled(True)
-        self.rtsp_input.setFocusPolicy(Qt.StrongFocus)
         self.rtsp_input.setVisible(False)
-        self.rtsp_input.setText("rrtsp://10.1.30.186:8554/cam")
-
-        # Add RTSP test connection button below RTSP input
+        self.rtsp_input.setEnabled(False)
         self.rtsp_test_btn = QPushButton("Probar conexión RTSP")
         self.rtsp_test_btn.setVisible(False)
         self.rtsp_test_btn.clicked.connect(self.test_rtsp_connection)
-
-        # Add RTSP status label below rtsp_input
         self.rtsp_status_label = QLabel("")
         self.rtsp_status_label.setVisible(False)
         self.rtsp_status_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-        self.load_cameras()  # Inserted here after RTSP widgets creation
+        # REALSENSE info label
+        self.realsense_info_label = QLabel("Opciones REALSENSE: 'default'")
+        self.realsense_info_label.setVisible(False)
 
         # ---------- Clases dinámicas ----------
         self.obj_label = QLabel("Clases detectables:")
         self.obj_checks = []
         self.scroll_widget = QtWidget()
         self.objects_box = QVBoxLayout(self.scroll_widget)
+        self.objects_box.setContentsMargins(20, 0, 0, 0)  # Márgenes para mover checkboxes a la derecha
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setWidget(self.scroll_widget)
         self.scroll_area.setFixedHeight(200)
 
-        # Add select all button below the label "Clases detectables:"
+        # Botones seleccionar/deseleccionar todo en fila al final del listado
         self.select_all_btn = QPushButton("Seleccionar todo")
+        self.select_all_btn.setFixedWidth(120)
+        self.select_all_btn.setFixedHeight(25)
         self.select_all_btn.clicked.connect(self.select_all_classes)
+
+        self.deselect_all_btn = QPushButton("Deseleccionar todo")
+        self.deselect_all_btn.setFixedWidth(120)
+        self.deselect_all_btn.setFixedHeight(25)
+        self.deselect_all_btn.clicked.connect(self.deselect_all_classes)
+
+        select_buttons_layout = QHBoxLayout()
+        select_buttons_layout.addWidget(self.select_all_btn)
+        select_buttons_layout.addWidget(self.deselect_all_btn)
+        select_buttons_layout.addStretch()
 
         # ---------- Parámetros de inferencia ----------
         self.conf_label = QLabel("Confianza:")
@@ -155,35 +178,50 @@ class Configurator(QWidget):
         self.back_btn = QPushButton("Volver al launcher")
         self.back_btn.clicked.connect(self.return_to_launcher)
 
-        # ---------- Layout general ----------
-        layout = QVBoxLayout()
-        layout.addWidget(self.model_label)
-        layout.addWidget(self.model_combo)
-        layout.addWidget(self.custom_model_btn)
-        layout.addWidget(self.cams_label)
-        layout.addWidget(self.cams_combo)
-        layout.addWidget(self.rtsp_label)
-        layout.addWidget(self.rtsp_input)
-        layout.addWidget(self.rtsp_status_label)
-        layout.addWidget(self.rtsp_test_btn)
-        layout.addWidget(self.obj_label)
-        layout.addWidget(self.select_all_btn)
-        layout.addWidget(self.scroll_area)
-        layout.addWidget(self.conf_label)
-        layout.addWidget(self.conf_spin)
-        layout.addWidget(self.imgsz_label)
-        layout.addWidget(self.imgsz_spin)
-        layout.addWidget(self.every_label)
-        layout.addWidget(self.every_spin)
-        layout.addWidget(self.save_btn)
-        layout.addWidget(self.back_btn)
-        self.setLayout(layout)
+        # ---------- Layout general reorganizado en dos columnas ----------
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(self.model_label)
+        left_layout.addWidget(self.model_combo)
+        left_layout.addWidget(self.custom_model_btn)
+
+        left_layout.addWidget(self.cam_type_label)
+        left_layout.addWidget(self.cam_type_combo)
+        left_layout.addWidget(self.cam_device_label)
+        left_layout.addWidget(self.cam_device_combo)
+
+        left_layout.addWidget(self.rtsp_input)
+        left_layout.addWidget(self.rtsp_status_label)
+        left_layout.addWidget(self.rtsp_test_btn)
+
+        left_layout.addWidget(self.realsense_info_label)
+
+        left_layout.addWidget(self.conf_label)
+        left_layout.addWidget(self.conf_spin)
+        left_layout.addWidget(self.imgsz_label)
+        left_layout.addWidget(self.imgsz_spin)
+        left_layout.addWidget(self.every_label)
+        left_layout.addWidget(self.every_spin)
+        left_layout.addWidget(self.save_btn)
+        left_layout.addWidget(self.back_btn)
+        left_layout.addStretch()
+
+        right_layout = QVBoxLayout()
+        right_layout.addWidget(self.obj_label)
+        right_layout.addWidget(self.scroll_area)
+        right_layout.addLayout(select_buttons_layout)
+        right_layout.addStretch()
+
+        main_layout = QHBoxLayout()
+        main_layout.addLayout(left_layout, 1)
+        main_layout.addLayout(right_layout, 1)
+
+        self.setLayout(main_layout)
 
         self.load_model_and_classes()
+        self.on_cam_type_changed(0)  # Inicializar lista dispositivos USB
 
-    def load_cameras(self):
-        self.cams_combo.clear()
-        # Add detected USB cameras
+    def load_cameras_usb(self):
+        devices = []
         if IS_WIN:
             for i in range(10):
                 cap = cv2.VideoCapture(i, BACKEND)
@@ -191,52 +229,54 @@ class Configurator(QWidget):
                 if ok: ok, _ = cap.read()
                 cap.release()
                 if ok:
-                    self.cams_combo.addItem(f"Cam {i}", ("USB", i))
+                    devices.append(i)
         else:
             for path in sorted(glob.glob("/dev/video*")):
-                idx = int(path.replace("/dev/video", ""))
+                try:
+                    idx = int(path.replace("/dev/video", ""))
+                except Exception:
+                    continue
                 cap = cv2.VideoCapture(idx, cv2.CAP_V4L2)
                 ok = cap.isOpened()
                 if ok: ok, _ = cap.read()
                 cap.release()
                 if ok:
-                    self.cams_combo.addItem(path, ("USB", idx))
-        # Add RTSP option
-        self.cams_combo.addItem("RTSP", ("RTSP", None))
-        self.on_cam_selection_changed(self.cams_combo.currentIndex())
+                    devices.append(idx)
+        return devices
 
-    def on_cam_selection_changed(self, index):
-        if index < 0:
-            self.rtsp_input.setVisible(False)
-            self.rtsp_input.setEnabled(False)
-            self.rtsp_input.setReadOnly(True)
-            self.rtsp_input.clearFocus()
-            self.rtsp_test_btn.setVisible(False)
-            self.rtsp_test_btn.setEnabled(False)
-            self.rtsp_status_label.setVisible(False)
-            self.rtsp_status_label.setEnabled(False)
-            return
-        data = self.cams_combo.itemData(index)
-        if data and data[0] == "RTSP":
+    def on_cam_type_changed(self, index):
+        cam_type = self.cam_type_combo.currentText()
+        self.rtsp_input.setVisible(False)
+        self.rtsp_input.setEnabled(False)
+        self.rtsp_test_btn.setVisible(False)
+        self.rtsp_status_label.setVisible(False)
+        self.realsense_info_label.setVisible(False)
+        self.cam_device_combo.setVisible(True)
+        self.cam_device_combo.clear()
+
+        if cam_type == "USB":
+            devices = self.load_cameras_usb()
+            if devices:
+                for d in devices:
+                    self.cam_device_combo.addItem(f"Cam {d}", d)
+            else:
+                self.cam_device_combo.addItem("No se detectaron cámaras USB", None)
+                self.cam_device_combo.setEnabled(False)
+            self.cam_device_combo.setEnabled(True)
+        elif cam_type == "RTSP":
+            self.cam_device_combo.setVisible(False)
             self.rtsp_input.setVisible(True)
             self.rtsp_input.setEnabled(True)
-            self.rtsp_input.setReadOnly(False)
-            self.rtsp_input.setFocus()
-            if not self.rtsp_input.text().strip():
-                self.rtsp_input.setText("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov")
+            self.rtsp_input.setText("rtsp://")
             self.rtsp_test_btn.setVisible(True)
-            self.rtsp_test_btn.setEnabled(True)
             self.rtsp_status_label.setVisible(True)
-            self.rtsp_status_label.setEnabled(True)
-        else:
-            self.rtsp_input.setVisible(False)
-            self.rtsp_input.setEnabled(False)
-            self.rtsp_input.setReadOnly(True)
-            self.rtsp_input.clearFocus()
-            self.rtsp_test_btn.setVisible(False)
-            self.rtsp_test_btn.setEnabled(False)
-            self.rtsp_status_label.setVisible(False)
-            self.rtsp_status_label.setEnabled(False)
+        elif cam_type == "REALSENSE":
+            self.cam_device_combo.setVisible(False)
+            self.realsense_info_label.setVisible(True)
+
+    def on_cam_device_changed(self, index):
+        # No acciones necesarias por ahora
+        pass
 
     def select_custom_model(self):
         path, _ = QFileDialog.getOpenFileName(self, "Seleccionar modelo YOLO", ".", "Modelos (*.pt)")
@@ -246,6 +286,10 @@ class Configurator(QWidget):
 
     def load_model_and_classes(self):
         name = self.model_combo.currentText()
+        if name not in MODELS:
+            self.custom_model_btn.setVisible(False)
+            self.model_path = None
+            return
         if MODELS[name] == "custom":
             self.custom_model_btn.setVisible(True)
             return  # Espera a que se seleccione
@@ -262,7 +306,9 @@ class Configurator(QWidget):
 
         # Limpiar clases anteriores
         for i in reversed(range(self.objects_box.count())):
-            self.objects_box.itemAt(i).widget().setParent(None)
+            w = self.objects_box.itemAt(i).widget()
+            if w:
+                w.setParent(None)
         self.obj_checks.clear()
 
         # Añadir nuevas clases
@@ -277,6 +323,10 @@ class Configurator(QWidget):
     def select_all_classes(self):
         for chk in self.obj_checks:
             chk.setChecked(True)
+
+    def deselect_all_classes(self):
+        for chk in self.obj_checks:
+            chk.setChecked(False)
 
     def test_rtsp_connection(self):
         rtsp_url = self.rtsp_input.text().strip()
@@ -310,31 +360,26 @@ class Configurator(QWidget):
 
     def save_config(self):
         selected_cams = []
-        # Collect USB cameras
-        for i in range(self.cams_combo.count()):
-            data = self.cams_combo.itemData(i)
-            if data and data[0] == "USB":
-                # Check if this USB camera is selected (since QComboBox allows one selection, we consider only current)
-                # But instruction says both USB and RTSP can coexist, so we must allow multiple selections?
-                # Since QComboBox is single selection, we will save only the selected USB camera if any.
-                pass
-        # Actually, QComboBox single selection, so only one selected item.
-        current_index = self.cams_combo.currentIndex()
-        if current_index >= 0:
-            data = self.cams_combo.itemData(current_index)
-            if data:
-                if data[0] == "USB":
-                    selected_cams.append({
-                        "id": data[1],
-                        "type": "USB"
-                    })
-                elif data[0] == "RTSP":
-                    rtsp_url = self.rtsp_input.text().strip()
-                    if rtsp_url:
-                        selected_cams.append({
-                            "id": rtsp_url,
-                            "type": "RTSP"
-                        })
+        cam_type = self.cam_type_combo.currentText()
+        if cam_type == "USB":
+            idx = self.cam_device_combo.currentData()
+            if idx is not None:
+                selected_cams.append({
+                    "id": idx,
+                    "type": "USB"
+                })
+        elif cam_type == "RTSP":
+            rtsp_url = self.rtsp_input.text().strip()
+            if rtsp_url:
+                selected_cams.append({
+                    "id": rtsp_url,
+                    "type": "RTSP"
+                })
+        elif cam_type == "REALSENSE":
+            selected_cams.append({
+                "id": "default",
+                "type": "REALSENSE"
+            })
 
         selected_objs = [chk.text() for chk in self.obj_checks if chk.isChecked()]
         cam_count = len(selected_cams)
@@ -367,11 +412,15 @@ class Configurator(QWidget):
             json.dump(config, f, indent=2)
 
         QMessageBox.information(self, "Listo", "Configuración guardada correctamente.")
-        self.close()
+
+        # Ejecutar el script correspondiente sin cerrar la ventana
+        try:
+            subprocess.Popen(["python", executor])
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"No se pudo ejecutar el script:\n{e}")
 
     def return_to_launcher(self):
         self.close()
-        import subprocess
         subprocess.Popen(["python", "launcher.py"])
 
 if __name__ == "__main__":

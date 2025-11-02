@@ -251,12 +251,23 @@ class CameraYoloApp(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.video)
 
-        # Configuración de la cámara
-#        self.cap = cv2.VideoCapture(cam_id, BACKEND)
-        # Forzar RTSP remoto desde Raspberry Pi
-        RTSP_URL = "rtsp://10.1.30.186:8554/cam"  # IP fija de tu Pi
-        self.cap = cv2.VideoCapture(RTSP_URL, cv2.CAP_FFMPEG)
-
+        # Configuración de la cámara según tipo (USB, RTSP, REALSENSE)
+        cam_config = next((c for c in CONFIG.get("cameras", []) if str(c.get("id")) == str(cam_id)), None)
+        if cam_config:
+            cam_type = cam_config.get("type", "USB").upper()
+            if cam_type == "RTSP":
+                source = cam_config.get("url")
+                print(f"🎥 Iniciando cámara RTSP: {source}")
+                self.cap = cv2.VideoCapture(source)
+            elif cam_type == "REAL SENSE" or cam_type == "REALSENSE":
+                print("🎥 Cámara RealSense detectada (no implementada, usa RealSense SDK si es necesario).")
+                self.cap = cv2.VideoCapture(cam_id, BACKEND)
+            else:  # USB por defecto
+                print(f"🎥 Iniciando cámara USB índice {cam_id}")
+                self.cap = cv2.VideoCapture(int(cam_id), BACKEND)
+        else:
+            print(f"⚠️ No se encontró configuración para la cámara {cam_id}, usando índice directo.")
+            self.cap = cv2.VideoCapture(int(cam_id), BACKEND)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         self.cap.set(cv2.CAP_PROP_FPS, 30)
@@ -279,14 +290,6 @@ class CameraYoloApp(QtWidgets.QWidget):
         self.seen_global_ids = set()
         self.recent_alerts = set()
 
-        # ================== NUEVO: Memoria de IDs recientes para conteo único ==================
-        self.recent_ids = {}  # id (tracker) -> timestamp
-        self.unique_count_last = 0
-        self.last_summary_log = 0
-        self.last_console_msg = 0
-        self.summary_csv_path = "logs/summary.csv"
-        self._ensure_summary_csv()
-
         # Configura hilo de inferencia
         self.worker = InferenceWorker(self.model, CONF, IMGSZ, DEVICE)
         self.thread = QtCore.QThread()
@@ -304,13 +307,6 @@ class CameraYoloApp(QtWidgets.QWidget):
         self.timer = QtCore.QTimer(self, interval=30)
         self.timer.timeout.connect(self.update_frame)
         self.timer.start()
-
-    def _ensure_summary_csv(self):
-        """Asegura que logs/summary.csv exista con cabecera."""
-        os.makedirs("logs", exist_ok=True)
-        if not os.path.isfile(self.summary_csv_path):
-            with open(self.summary_csv_path, "w", newline="") as f:
-                csv.writer(f).writerow(["timestamp", "cam_id", "unique_count"])
 
     # ===================== ACTUALIZAR FRAME =====================
     def update_frame(self):
@@ -333,10 +329,9 @@ class CameraYoloApp(QtWidgets.QWidget):
 
     # ===================== RESULTADOS =====================
     def handle_results(self, results, t_ms):
-        """Dibuja detecciones, gestiona memoria y alertas, y cuenta individuos únicos."""
+        """Dibuja detecciones, gestiona memoria y alertas."""
         overlay = self.current_frame.copy()
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        now = time.time()
 
         detections = []
         for box, conf, cls in zip(results.boxes.xyxy, results.boxes.conf, results.boxes.cls):
@@ -385,32 +380,6 @@ class CameraYoloApp(QtWidgets.QWidget):
             with open(CSV_PATH, "a", newline="") as f:
                 csv.writer(f).writerow([timestamp, self.cam_id, name, tid, round(conf, 2), x1, y1, x2, y2, img_name])
 
-            # ==================== NUEVO: Actualiza memoria de IDs recientes ====================
-            self.recent_ids[tid] = now
-
-        # Limpia IDs fuera de la ventana de 5 minutos (300 seg)
-        min_time = now - 300
-        self.recent_ids = {id_: ts for id_, ts in self.recent_ids.items() if ts >= min_time}
-
-        unique_count = len(self.recent_ids)
-        # Guarda (append) en logs/summary.csv si cambia el conteo o cada 60s
-        log_needed = False
-        if unique_count != self.unique_count_last:
-            log_needed = True
-            self.unique_count_last = unique_count
-            self.last_summary_log = now
-        elif now - self.last_summary_log > 60:
-            log_needed = True
-            self.last_summary_log = now
-        if log_needed:
-            with open(self.summary_csv_path, "a", newline="") as f:
-                csv.writer(f).writerow([time.strftime("%Y-%m-%d %H:%M:%S"), self.cam_id, unique_count])
-
-        # Mensaje en consola cada 60s con el número de individuos únicos
-        if now - self.last_console_msg > 60:
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Cámara {self.cam_id}: {unique_count} individuos únicos (últimos 5 minutos)")
-            self.last_console_msg = now
-
         # Muestra tiempo de inferencia
         cv2.putText(overlay, f"{t_ms:.1f} ms", (15, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 2)
 
@@ -450,8 +419,12 @@ if __name__ == "__main__":
     # Crea aplicación Qt y lanza una ventana por cámara configurada
     app = QtWidgets.QApplication(sys.argv)
     windows = []
-    for cam in CONFIG["cameras"]:
-        w = CameraYoloApp(cam["id"])
+    for cam in CONFIG.get("cameras", []):
+        source_id = cam.get("id", 0)
+        print(f"🎥 Cargando cámara '{cam.get('name', 'Sin nombre')}' tipo {cam.get('type', 'USB')} id={source_id}")
+        w = CameraYoloApp(source_id)
         w.show()
         windows.append(w)
+    if not CONFIG.get("cameras"):
+        print("⚠️ No hay cámaras definidas en config.json")
     app.exec()

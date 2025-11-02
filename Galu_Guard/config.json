@@ -1,11 +1,6 @@
 {
-  "cam_count": 1,
-  "cameras": [
-    {
-      "id": 2,
-      "type": "USB"
-    }
-  ],
+  "cam_count": 0,
+  "cameras": [],
   "executor": "camera_yolo_1.py",
   "objects": [
     "person",
