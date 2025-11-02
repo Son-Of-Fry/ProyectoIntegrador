@@ -261,12 +261,15 @@ class CameraYoloApp(QtWidgets.QWidget):
             if self.cam_type == "RTSP":
                 source = cam_config.get("url")
                 print(f"🎥 Iniciando cámara RTSP: {source}")
-                self.cap = cv2.VideoCapture(source)
+                self.cap = cv2.VideoCapture(source, BACKEND)
                 self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
                 self.cap.set(cv2.CAP_PROP_FPS, 30)
                 self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
                 self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+                if not self.cap.isOpened():
+                    print(f"⚠️ No se pudo abrir RTSP {source}, reintentando con backend genérico...")
+                    self.cap = cv2.VideoCapture(source)
             elif self.cam_type == "REAL SENSE" or self.cam_type == "REALSENSE":
                 print("🎥 Iniciando cámara Intel RealSense usando pyrealsense2")
                 self.pipeline = rs.pipeline()
