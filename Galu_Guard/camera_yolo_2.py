@@ -252,7 +252,11 @@ class CameraYoloApp(QtWidgets.QWidget):
         layout.addWidget(self.video)
 
         # Configuración de la cámara
-        self.cap = cv2.VideoCapture(cam_id, BACKEND)
+#        self.cap = cv2.VideoCapture(cam_id, BACKEND)
+        # Forzar RTSP remoto desde Raspberry Pi
+        RTSP_URL = "rtsp://10.1.30.186:8554/cam"  # IP fija de tu Pi
+        self.cap = cv2.VideoCapture(RTSP_URL, cv2.CAP_FFMPEG)
+
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         self.cap.set(cv2.CAP_PROP_FPS, 30)

@@ -2,7 +2,7 @@
   "cam_count": 1,
   "cameras": [
     {
-      "id": 0,
+      "id": 2,
       "type": "USB"
     }
   ],

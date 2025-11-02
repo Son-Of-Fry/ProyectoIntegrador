@@ -103,7 +103,7 @@ class Configurator(QWidget):
         self.rtsp_input.setClearButtonEnabled(True)
         self.rtsp_input.setFocusPolicy(Qt.StrongFocus)
         self.rtsp_input.setVisible(False)
-        self.rtsp_input.setText("rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mov")
+        self.rtsp_input.setText("rrtsp://10.1.30.186:8554/cam")
 
         # Add RTSP test connection button below RTSP input
         self.rtsp_test_btn = QPushButton("Probar conexión RTSP")
