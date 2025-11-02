@@ -1,4 +1,6 @@
 import sys, cv2, time, json, torch, os, csv, queue, threading
+import numpy as np
+import pyrealsense2 as rs
 from PySide6 import QtCore, QtGui, QtWidgets
 from ultralytics import YOLO
 from math import hypot
@@ -253,26 +255,41 @@ class CameraYoloApp(QtWidgets.QWidget):
 
         # Configuración de la cámara según tipo (USB, RTSP, REALSENSE)
         cam_config = next((c for c in CONFIG.get("cameras", []) if str(c.get("id")) == str(cam_id)), None)
+        self.cam_type = None
         if cam_config:
-            cam_type = cam_config.get("type", "USB").upper()
-            if cam_type == "RTSP":
+            self.cam_type = cam_config.get("type", "USB").upper()
+            if self.cam_type == "RTSP":
                 source = cam_config.get("url")
                 print(f"🎥 Iniciando cámara RTSP: {source}")
                 self.cap = cv2.VideoCapture(source)
-            elif cam_type == "REAL SENSE" or cam_type == "REALSENSE":
-                print("🎥 Cámara RealSense detectada (no implementada, usa RealSense SDK si es necesario).")
-                self.cap = cv2.VideoCapture(cam_id, BACKEND)
+                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+                self.cap.set(cv2.CAP_PROP_FPS, 30)
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            elif self.cam_type == "REAL SENSE" or self.cam_type == "REALSENSE":
+                print("🎥 Iniciando cámara Intel RealSense usando pyrealsense2")
+                self.pipeline = rs.pipeline()
+                self.rs_config = rs.config()
+                self.rs_config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+                self.pipeline.start(self.rs_config)
             else:  # USB por defecto
                 print(f"🎥 Iniciando cámara USB índice {cam_id}")
                 self.cap = cv2.VideoCapture(int(cam_id), BACKEND)
+                self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+                self.cap.set(cv2.CAP_PROP_FPS, 30)
+                self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+                self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         else:
             print(f"⚠️ No se encontró configuración para la cámara {cam_id}, usando índice directo.")
+            self.cam_type = "USB"
             self.cap = cv2.VideoCapture(int(cam_id), BACKEND)
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-        self.cap.set(cv2.CAP_PROP_FPS, 30)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+            self.cap.set(cv2.CAP_PROP_FPS, 30)
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
         # Carga modelo YOLO
         self.model = YOLO(MODEL_PATH).to(DEVICE)
@@ -311,8 +328,21 @@ class CameraYoloApp(QtWidgets.QWidget):
     # ===================== ACTUALIZAR FRAME =====================
     def update_frame(self):
         """Lee la cámara y actualiza la imagen mostrada; envía frames a inferencia periódicamente."""
-        ok, frame = self.cap.read()
-        if not ok:
+        frame = None
+        ok = False
+        if hasattr(self, 'cam_type') and (self.cam_type == "REAL SENSE" or self.cam_type == "REALSENSE"):
+            try:
+                frames = self.pipeline.wait_for_frames()
+                color_frame = frames.get_color_frame()
+                if color_frame:
+                    frame = np.asanyarray(color_frame.get_data())
+                    ok = True
+            except Exception as e:
+                print("Error al obtener frame de RealSense:", e)
+                ok = False
+        else:
+            ok, frame = self.cap.read()
+        if not ok or frame is None:
             return
         self.frame_idx += 1
         self.current_frame = frame.copy()
