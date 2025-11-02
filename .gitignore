@@ -73,8 +73,6 @@ entrenamientos/**/*.zip
 logs/
 *.log
 *.csv
-*.json
-*.yaml
 runs/
 output/
 outputs/

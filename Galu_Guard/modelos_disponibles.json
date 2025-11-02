@@ -1,0 +1,9 @@
+{
+  "modelos": [
+    {"nombre": "YOLO11n (rápido)", "archivo": "yolo11n.pt"},
+    {"nombre": "YOLO11s (equilibrado)", "archivo": "yolo11s.pt"},
+    {"nombre": "YOLO11m (preciso)", "archivo": "yolo11m.pt"},
+    {"nombre": "EPP Helmet Detector", "archivo": "EPP_best.pt"},
+    {"nombre": "Human Activity Pose", "archivo": "HumanActivity_best.pt"}
+  ]
+}   
