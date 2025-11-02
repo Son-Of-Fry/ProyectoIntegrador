@@ -386,13 +386,12 @@ class Configurator(QWidget):
 
         # Determinar archivo ejecutor
         if cam_count == 1:
-            executor = "camera_yolo_1.py"
-        elif cam_count == 2:
-            executor = "camera_yolo_1x2.py"
-        elif cam_count <= 4:
-            executor = "camera_yolo_2x2.py"
+            if selected_cams[0]["type"] == "REALSENSE":
+                executor = "camera_realsense_qt.py"
+            else:
+                executor = "camera_yolo_1.py"
         else:
-            executor = "camera_yolo_2x2.py"
+            executor = "camera_yolo_1.py"
 
         config = {
             "cam_count": cam_count,
