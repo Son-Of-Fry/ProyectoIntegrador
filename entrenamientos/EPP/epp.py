@@ -27,19 +27,19 @@ device_infer = None
 if torch.cuda.is_available():
     device_train = "cuda"
     device_infer = "cuda"
-    print(f"🚀 GPU CUDA disponible: {torch.cuda.get_device_name(0)}")
+    print(f"GPU CUDA disponible: {torch.cuda.get_device_name(0)}")
 elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
     device_infer = "mps"
     device_train = "mps"
-    print("⚠️ Advertencia: MPS está disponible pero tiene bugs conocidos en entrenamiento.")
+    print("Advertencia: MPS está disponible pero tiene bugs conocidos en entrenamiento.")
     print("   Usando CPU para entrenamiento y MPS para inferencia.")
 else:
     device_train = "cpu"
     device_infer = "cpu"
-    print("⚙️ Usando CPU — el entrenamiento será más lento.")
+    print("Usando CPU — el entrenamiento será más lento.")
 
-print(f"✅ Dispositivo seleccionado para entrenamiento: {device_train}")
-print(f"✅ Dispositivo seleccionado para inferencia: {device_infer}")
+print(f"Dispositivo seleccionado para entrenamiento: {device_train}")
+print(f"Dispositivo seleccionado para inferencia: {device_infer}")
 
 
 # ===========================================================
@@ -53,7 +53,7 @@ version = project.version(2)
 dataset = version.download("yolov11")
 
 DATASET_DIR = dataset.location
-print("📁 Dataset descargado en:", DATASET_DIR)
+print("Dataset descargado en:", DATASET_DIR)
 
 
 # ===========================================================
@@ -75,7 +75,7 @@ results = model.train(
     name="EPP_v11n"
 )
 
-print("✅ Entrenamiento completado.")
+print("Entrenamiento completado.")
 
 
 # ===========================================================
@@ -85,7 +85,7 @@ print("\n=== Step 04. Buscar modelo entrenado ===")
 
 best_models = glob.glob("runs/detect/EPP_v11n*/weights/best.pt")
 BEST = max(best_models, key=os.path.getmtime)
-print("✅ Modelo más reciente:", BEST)
+print("Modelo más reciente:", BEST)
 
 
 # ===========================================================
@@ -94,7 +94,7 @@ print("✅ Modelo más reciente:", BEST)
 print("\n=== Step 05. Validar modelo ===")
 model = YOLO(BEST)
 metrics = model.val(data=f"{DATASET_DIR}/data.yaml")
-print("📊 Resultados de validación:", metrics.results_dict)
+print("Resultados de validación:", metrics.results_dict)
 
 
 # ===========================================================
@@ -113,9 +113,9 @@ images_to_show = [
 for img_name in images_to_show:
     path = os.path.join(train_dir, img_name)
     if os.path.exists(path):
-        print("🖼️", path)
+        print(" ", path)
     else:
-        print("❌ No encontrado:", img_name)
+        print("No encontrado:", img_name)
 
 
 # ===========================================================
@@ -131,7 +131,7 @@ model.predict(
     name="EPP_images",
     device=device_infer
 )
-print("✅ Inferencia en imágenes completada.")
+print("Inferencia en imágenes completada.")
 
 
 # ===========================================================
@@ -149,9 +149,9 @@ if os.path.exists(video_path):
         name="EPP_video",
         device=device_infer
     )
-    print("🎬 Video procesado y guardado en runs/predict/EPP_video")
+    print("Video procesado y guardado en runs/predict/EPP_video")
 else:
-    print("⚠️ No se encontró PPE_demo.mp4, omitiendo prueba de video.")
+    print("No se encontró PPE_demo.mp4, omitiendo prueba de video.")
 
 
 # ===========================================================
@@ -161,7 +161,7 @@ print("\n=== Step 09. Exportar modelo ===")
 
 export_path = "EPP_best.pt"
 os.system(f'cp "{BEST}" "{export_path}"')
-print(f"✅ Modelo exportado a: {export_path}")
+print(f"Modelo exportado a: {export_path}")
 
 
 # ===========================================================
@@ -175,36 +175,5 @@ if os.path.exists(prev_model):
     prev = YOLO(prev_model)
     prev.val(data=f"{DATASET_DIR}/data.yaml")
 else:
-    print("⚠️ No se encontró modelo previo para comparar.")
+    print("No se encontró modelo previo para comparar.")
 """
-
-
-# ===========================================================
-# Step 11. Prueba en cámara web (OpenCV + YOLO)
-# ===========================================================
-print("\n=== Step 11. Detección en cámara web ===")
-
-cap = cv2.VideoCapture(0)
-if not cap.isOpened():
-    print("❌ No se pudo abrir la cámara.")
-else:
-    print("🎥 Cámara abierta. Presiona 'q' para salir.")
-
-while cap.isOpened():
-    ret, frame = cap.read()
-    if not ret:
-        break
-
-    # Detección
-    results = model.predict(frame, conf=0.5, verbose=False, device=device_infer)
-    annotated = results[0].plot()
-
-    # Mostrar resultado
-    cv2.imshow("EPP Detection - YOLOv11", annotated)
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
-
-cap.release()
-cv2.destroyAllWindows()
-
-print("✅ Detección en cámara finalizada.")

@@ -7,10 +7,12 @@
     }
   ],
   "executor": "camera_yolo_1.py",
-  "objects": [],
+  "objects": [
+    "person"
+  ],
   "yolo": {
     "model": "yolo11n.pt",
-    "confidence": 0.35,
+    "confidence": 0.9,
     "imgsz": 640,
     "process_every": 1,
     "device": "cuda"
