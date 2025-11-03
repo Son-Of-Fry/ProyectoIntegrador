@@ -259,7 +259,7 @@ class CameraYoloApp(QtWidgets.QWidget):
         if cam_config:
             self.cam_type = cam_config.get("type", "USB").upper()
             if self.cam_type == "RTSP":
-                source = cam_config.get("url")
+                source = cam_config.get("url") or cam_config.get("id")
                 print(f"🎥 Iniciando cámara RTSP: {source}")
                 self.cap = cv2.VideoCapture(source, BACKEND)
                 self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)

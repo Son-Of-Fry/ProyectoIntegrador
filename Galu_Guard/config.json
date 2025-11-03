@@ -1,39 +1,15 @@
 {
-  "cam_count": 0,
-  "cameras": [],
-  "executor": "camera_yolo_1.py",
-  "objects": [
-    "person",
-    "bicycle",
-    "car",
-    "motorcycle",
-    "bus",
-    "train",
-    "truck",
-    "bird",
-    "cat",
-    "dog",
-    "backpack",
-    "umbrella",
-    "handbag",
-    "suitcase",
-    "baseball bat",
-    "bottle",
-    "wine glass",
-    "cup",
-    "fork",
-    "knife",
-    "spoon",
-    "toilet",
-    "tv",
-    "mouse",
-    "cell phone",
-    "scissors",
-    "teddy bear",
-    "hair drier"
+  "cam_count": 1,
+  "cameras": [
+    {
+      "id": "rtsp://192.168.1.78:8554/cam",
+      "type": "RTSP"
+    }
   ],
+  "executor": "camera_yolo_1.py",
+  "objects": [],
   "yolo": {
-    "model": "yolo11s.pt",
+    "model": "yolo11n.pt",
     "confidence": 0.35,
     "imgsz": 640,
     "process_every": 1,
