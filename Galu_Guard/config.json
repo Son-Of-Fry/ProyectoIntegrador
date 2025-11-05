@@ -2,8 +2,8 @@
   "cam_count": 1,
   "cameras": [
     {
-      "id": "rtsp://192.168.1.78:8554/cam",
-      "type": "RTSP"
+      "id": 0,
+      "type": "USB"
     }
   ],
   "executor": "camera_yolo_1.py",
@@ -12,7 +12,7 @@
   ],
   "yolo": {
     "model": "yolo11n.pt",
-    "confidence": 0.9,
+    "confidence": 0.75,
     "imgsz": 640,
     "process_every": 1,
     "device": "cuda"

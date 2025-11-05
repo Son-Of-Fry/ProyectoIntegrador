@@ -1,0 +1,9 @@
+# botsort.yaml — configuración base
+tracker_type: botsort
+track_high_thresh: 0.5
+track_low_thresh: 0.1
+new_track_thresh: 0.4
+track_buffer: 90       # ✅ mantiene IDs durante 3 segundos
+match_thresh: 0.7      # ✅ más permisivo
+mot20: False
+ema_alpha: 0.9
