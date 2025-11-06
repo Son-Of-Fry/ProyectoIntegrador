@@ -1,23 +1,24 @@
 # ==========================================================
-# 🤖 Dockerfile.jetson — Galu Guard Jetson (YOLO + RealSense + Qt)
+# Dockerfile.jetson — Galu Guard Jetson (YOLO + RealSense + Qt)
 # ==========================================================
 FROM ultralytics/ultralytics:latest-jetson-jetpack6
 
 WORKDIR /app
 
 # ----------------------------------------------------------
-# 🧰 Dependencias de sistema (Qt y RealSense)
+# Dependencias de sistema (Qt y RealSense)
 # ----------------------------------------------------------
 RUN apt-get update && apt-get install -y \
     libgl1-mesa-glx \
     libx11-6 \
     qtbase5-dev \
-    libxcb-cursor0 \        
-    libxkbcommon-x11-0 \    
+    libxcb-cursor0 \
+    libxkbcommon-x11-0 \
     curl gnupg2 software-properties-common \
     && apt-get clean
+
 # ----------------------------------------------------------
-# 📦 Librerías de Intel RealSense
+# Librerías de Intel RealSense
 # ----------------------------------------------------------
 RUN mkdir -p /etc/apt/keyrings && \
     curl -sSf https://librealsense.intel.com/Debian/librealsense.pgp \
@@ -31,7 +32,7 @@ RUN mkdir -p /etc/apt/keyrings && \
     && rm -rf /var/lib/apt/lists/*
 
 # ----------------------------------------------------------
-# 🐍 Dependencias Python
+# Dependencias Python
 # ----------------------------------------------------------
 COPY . /app
 
@@ -41,6 +42,16 @@ RUN pip install --no-cache-dir \
     PySide6
 
 # ----------------------------------------------------------
-# 🚀 Comando de arranque
+# Conversión automática de modelos YOLO .pt a TensorRT
+# ----------------------------------------------------------
+RUN for f in /app/*.pt; do \
+        if [ -f "$f" ]; then \
+            echo "Convirtiendo $f a TensorRT..."; \
+            yolo export model="$f" format=engine device=0 half=True; \
+        fi; \
+    done
+
+# ----------------------------------------------------------
+# Comando de arranque
 # ----------------------------------------------------------
 CMD ["python3", "launcher.py"]
